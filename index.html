@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+        .tracker-container {
+            max-width: 450px;
+            width: 100%;
+        }
+        .transaction-item:hover .delete-btn {
+            opacity: 1;
+        }
+        .delete-btn {
+            transition: opacity 0.3s ease;
+        }
+        .history-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .history-list::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .history-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        #notification {
+            transition: opacity 0.5s, transform 0.5s;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="tracker-container bg-white p-6 md:p-8 rounded-2xl shadow-2xl shadow-slate-200">
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-4 text-center">
+            Expense Tracker
+        </h1>
+        <p class="text-slate-500 text-center mb-6">Keep track of your income and expenses.</p>
+
+        <div class="mb-6">
+            <h2 class="text-sm uppercase text-slate-500 font-semibold">Your Balance</h2>
+            <p id="balance" class="text-3xl font-bold text-slate-800 mt-1">₹0.00</p>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl flex items-center justify-around mb-6 shadow-inner shadow-slate-200">
+            <div class="text-center">
+                <h3 class="text-sm uppercase text-slate-500 font-semibold">Income</h3>
+                <p id="money-plus" class="text-xl font-semibold text-green-500 mt-1">+₹0.00</p>
+            </div>
+            <div class="w-px h-12 bg-slate-200"></div>
+            <div class="text-center">
+                <h3 class="text-sm uppercase text-slate-500 font-semibold">Expense</h3>
+                <p id="money-minus" class="text-xl font-semibold text-red-500 mt-1">-₹0.00</p>
+            </div>
+        </div>
+
+        <h3 class="text-lg font-semibold text-slate-700 border-b-2 border-slate-200 pb-2 mb-4">History</h3>
+        <ul id="list" class="history-list list-none m-0 p-0 mb-6 max-h-40 overflow-y-auto space-y-2 pr-2">
+        </ul>
+
+        <h3 class="text-lg font-semibold text-slate-700 border-b-2 border-slate-200 pb-2 mb-4">Add new transaction</h3>
+        <form id="form">
+            <div class="mb-4">
+                <label for="text" class="block text-sm font-medium text-slate-600 mb-1">Description</label>
+                <input type="text" id="text" placeholder="Enter description..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition" autocomplete="off">
+            </div>
+            <div class="mb-4">
+                <label for="amount" class="block text-sm font-medium text-slate-600 mb-1">Amount</label>
+                 <p class="text-xs text-slate-400 mb-1">(negative - expense, positive - income)</p>
+                <input type="number" id="amount" placeholder="Enter amount..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition" autocomplete="off">
+            </div>
+            <button class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 transform hover:scale-105">
+                Add transaction
+            </button>
+        </form>
+    </div>
+
+    <div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-md opacity-0 transform translate-y-2">
+        Please add a description and amount.
+    </div>
+
+    <script>
+        const balance = document.getElementById('balance');
+        const money_plus = document.getElementById('money-plus');
+        const money_minus = document.getElementById('money-minus');
+        const list = document.getElementById('list');
+        const form = document.getElementById('form');
+        const textInput = document.getElementById('text');
+        const amountInput = document.getElementById('amount');
+        const notification = document.getElementById('notification');
+
+        const localStorageTransactions = JSON.parse(localStorage.getItem('transactions'));
+
+        let transactions = localStorage.getItem('transactions') !== null ? localStorageTransactions : [];
+
+        function showNotification(message, isError = true) {
+            notification.textContent = message;
+            notification.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-md opacity-0 transform translate-y-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            notification.classList.remove('opacity-0', 'translate-y-2');
+            notification.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                notification.classList.remove('opacity-100', 'translate-y-0');
+                notification.classList.add('opacity-0', 'translate-y-2');
+            }, 3000);
+        }
+
+        function addTransactionDOM(transaction) {
+            const sign = transaction.amount < 0 ? '-' : '+';
+            const item = document.createElement('li');
+            const itemClass = transaction.amount < 0 ? 'border-red-400' : 'border-green-400';
+
+            item.classList.add('bg-white', 'p-3', 'rounded-lg', 'shadow-sm', 'border-r-4', itemClass, 'flex', 'justify-between', 'items-center', 'relative', 'transaction-item');
+
+            item.innerHTML = `
+                <span class="text-slate-700">${transaction.text}</span>
+                <span class="font-semibold ${transaction.amount < 0 ? 'text-red-500' : 'text-green-500'}">
+                    ${sign}₹${Math.abs(transaction.amount).toFixed(2)}
+                </span>
+                <button class="delete-btn bg-red-600 text-white w-6 h-6 rounded-full absolute -right-3 top-1/2 -translate-y-1/2 opacity-0 focus:opacity-100" onclick="deleteTransaction(${transaction.id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            list.appendChild(item);
+        }
+
+        function updateValues() {
+            const amounts = transactions.map(transaction => transaction.amount);
+            const total = amounts.reduce((acc, item) => (acc += item), 0).toFixed(2);
+            const income = amounts.filter(item => item > 0).reduce((acc, item) => (acc += item), 0).toFixed(2);
+            const expense = (amounts.filter(item => item < 0).reduce((acc, item) => (acc += item), 0) * -1).toFixed(2);
+
+            balance.innerText = `₹${total}`;
+            money_plus.innerText = `+₹${income}`;
+            money_minus.innerText = `-₹${expense}`;
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            if (textInput.value.trim() === '' || amountInput.value.trim() === '') {
+                showNotification('Please add a description and amount.');
+            } else {
+                const newTransaction = {
+                    id: generateID(),
+                    text: textInput.value,
+                    amount: +amountInput.value
+                };
+
+                transactions.push(newTransaction);
+                updateLocalStorage();
+                init();
+
+                textInput.value = '';
+                amountInput.value = '';
+                textInput.focus();
+            }
+        }
+        
+        function generateID() {
+            return Math.floor(Math.random() * 100000000);
+        }
+
+        function deleteTransaction(id) {
+            transactions = transactions.filter(transaction => transaction.id !== id);
+            updateLocalStorage();
+            init();
+        }
+
+        function updateLocalStorage() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+
+        function init() {
+            list.innerHTML = '';
+            transactions.forEach(addTransactionDOM);
+            updateValues();
+        }
+
+        form.addEventListener('submit', addTransaction);
+        
+        init();
+    </script>
+</body>
+</html>
+
